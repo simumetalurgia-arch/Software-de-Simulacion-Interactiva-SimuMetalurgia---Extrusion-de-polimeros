@@ -1,0 +1,1181 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Simumetalurgia © |Software de Aprendizaje de Extrusión Polímeros</title>
+    
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+
+    <style>
+        /* --- ESTILOS DE INGENIERÍA --- */
+        :root {
+            --primary: #1e293b; --accent: #0ea5e9; --bg-site: #f1f5f9;
+            --sheet: #ffffff; --text-main: #334155; --border: #cbd5e1;
+        }
+
+        body {
+            margin: 0; font-family: Arial, Helvetica, sans-serif; font-size: 16px;
+            background-color: var(--bg-site); color: var(--text-main);
+            display: flex; flex-direction: column; min-height: 100vh; overflow-x: hidden;
+        }
+
+        header { background: var(--primary); color: white; padding: 15px 0; text-align: center; z-index: 30; }
+        header h1 { margin: 0; font-size: 24px; }
+
+        nav { background: var(--sheet); display: flex; justify-content: center; gap: 10px; padding: 12px 0; border-bottom: 2px solid var(--border); z-index: 30; position: sticky; top: 0; box-shadow: 0 2px 10px rgba(0,0,0,0.05); }
+        .nav-btn { padding: 10px 20px; border: none; background: transparent; cursor: pointer; font-size: 15px; font-weight: bold; color: #64748b; border-radius: 6px; transition: 0.3s; }
+        .nav-btn.active { color: var(--accent); border-bottom: 3px solid var(--accent); border-radius: 0; }
+        .nav-btn:hover { color: var(--accent); background: #f0f9ff; }
+
+        #main-content { flex: 1; display: flex; flex-direction: column; padding: 30px 20px; box-sizing: border-box; }
+        .section-sheet { width: 100%; max-width: 1200px; margin: 0 auto; background: var(--sheet); border-radius: 12px; box-shadow: 0 5px 20px rgba(0,0,0,0.05); display: none; flex-direction: column; padding: 30px; box-sizing: border-box; }
+        .section-sheet.active { display: flex; animation: fadeInMain 0.4s ease; }
+        @keyframes fadeInMain { from { opacity: 0; transform: translateY(15px); } to { opacity: 1; transform: translateY(0); } }
+
+        .wrap { width: 100%; }
+        
+        .btn-action { background: var(--accent); color: white; border: none; padding: 12px 25px; border-radius: 8px; font-weight: bold; font-size: 16px; cursor: pointer; transition: 0.2s; margin-top: 15px; display: inline-block; text-decoration: none; }
+        .btn-action:hover { background: #0284c7; transform: translateY(-2px); }
+
+        /* --- LAYOUT SIMULADOR --- */
+        .sim-container { display: flex; flex-direction: column; gap: 20px; width: 100%; }
+        .top-bar { display: flex; gap: 20px; background: #f8fafc; padding: 20px; border-radius: 10px; border: 1px solid var(--border); align-items: center; flex-wrap: wrap; }
+        .control-group { display: flex; flex-direction: column; gap: 6px; flex: 1; min-width: 200px; }
+        .control-group label { font-size: 13px; font-weight: bold; color: var(--text-muted); text-transform: uppercase; }
+        select { padding: 10px; border: 1px solid var(--border); border-radius: 6px; font-size: 15px; background: white; width: 100%; }
+        
+        .btn-load { background: #10b981; color: white; border: none; padding: 12px 25px; border-radius: 6px; font-weight: bold; cursor: pointer; height: 45px; align-self: flex-end; font-size: 16px; transition: 0.2s;}
+        .btn-load:hover { background: #059669; transform: scale(1.02); }
+
+        .machine-assembly { display: flex; flex-direction: column; gap: 20px; width: 100%; }
+        
+        .view-2d { height: 320px; background: #ffffff; border: 2px solid var(--border); border-radius: 8px; position: relative; overflow: hidden; }
+        .view-2d-post { height: 260px; background: #ffffff; border: 2px solid var(--border); border-radius: 8px; position: relative; overflow: hidden; }
+        .view-3d-row { height: 380px; display: flex; gap: 15px; }
+        
+        .canvas-3d-box { flex: 1; background: #e2e8f0; border: 2px solid var(--border); border-radius: 8px; position: relative; overflow: hidden; cursor: grab; }
+        .canvas-3d-box:active { cursor: grabbing; }
+
+        canvas { display: block; width: 100%; height: 100%; }
+        .tag-overlay { position: absolute; top: 10px; left: 10px; background: rgba(15, 23, 42, 0.8); color: white; padding: 5px 10px; border-radius: 5px; font-size: 12px; font-weight: bold; z-index: 10; pointer-events: none; }
+        
+        /* --- ESTILOS ESPECÍFICOS PARA TEORÍA Y MANUAL (Arial 12, Centrado, Tarjetas) --- */
+        .info-content { font-family: Arial, Helvetica, sans-serif; font-size: 12px; text-align: center; }
+        
+        .sub-nav { display: flex; gap: 10px; margin: 20px 0; border-bottom: 2px solid var(--border); padding-bottom: 10px; flex-wrap: wrap; justify-content: center; }
+        .sub-nav-btn { padding: 8px 16px; border: none; background: #f1f5f9; cursor: pointer; font-size: 13px; font-weight: bold; color: #475569; border-radius: 6px; transition: 0.2s; }
+        .sub-nav-btn.active { background: var(--accent); color: white; transform: scale(1.05); }
+        .sub-nav-btn:hover:not(.active) { background: #e2e8f0; }
+        
+        .teoria-sub-sheet { display: none; }
+        .teoria-sub-sheet.active { display: block; animation: fadeSlideUp 0.6s ease-out forwards; }
+        @keyframes fadeSlideUp {
+            0% { opacity: 0; transform: translateY(20px); }
+            100% { opacity: 1; transform: translateY(0); }
+        }
+
+        .info-content h2 { font-size: 20px; color: var(--primary); }
+        .info-content h3 { font-size: 16px; color: var(--accent); border-bottom: 1px solid var(--border); padding-bottom: 5px; margin-top: 10px; display: inline-block; }
+        .info-content h4 { font-size: 14px; color: #334155; margin-top: 30px; margin-bottom: 15px;}
+        .info-content p { line-height: 1.6; margin-bottom: 15px; text-align: justify; max-width: 900px; margin-left: auto; margin-right: auto; }
+        .info-content ul { list-style-position: inside; padding: 0; margin-bottom: 15px; line-height: 1.6; text-align: justify; max-width: 900px; margin-left: auto; margin-right: auto;}
+        
+        /* Cajas de Colores (Cards) para Teoría y Manual */
+        .card-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 20px; margin: 25px 0; }
+        .teo-card { background: #f8fafc; border-left: 4px solid var(--accent); padding: 20px; border-radius: 0 12px 12px 0; box-shadow: 0 4px 10px rgba(0,0,0,0.05); transition: transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275), box-shadow 0.3s; display: flex; flex-direction: column; align-items: center; text-align: justify; }
+        .teo-card:hover { transform: translateY(-8px) scale(1.02); box-shadow: 0 12px 20px rgba(0,0,0,0.1); }
+        
+        .teo-card.red { border-left-color: #ef4444; background: #fef2f2; }
+        .teo-card.green { border-left-color: #10b981; background: #f0fdf4; }
+        .teo-card.purple { border-left-color: #8b5cf6; background: #faf5ff; }
+        .teo-card.orange { border-left-color: #f97316; background: #fff7ed; }
+        .teo-card.teal { border-left-color: #14b8a6; background: #f0fdfa; }
+        .teo-card.dark { border-left-color: #334155; background: #f1f5f9; }
+
+        .teo-card strong { color: #1e293b; font-size: 14px; margin-bottom: 8px; display: block; text-align: center; width: 100%;}
+        .teo-card p { margin: 0; font-size: 12px; }
+
+        /* Imágenes Animadas */
+        .teo-img { max-width: 100%; height: auto; max-height: 220px; border-radius: 12px; margin: 15px auto; display: block; box-shadow: 0 6px 12px rgba(0,0,0,0.15); transition: transform 0.4s ease, box-shadow 0.4s ease; object-fit: cover; }
+        .teo-img:hover { transform: scale(1.08) translateY(-5px); box-shadow: 0 15px 25px rgba(0,0,0,0.2); z-index: 10; position: relative; }
+        .img-row { display: flex; gap: 15px; justify-content: center; flex-wrap: wrap; margin-top: 10px; }
+        .img-row .teo-img { max-width: 45%; max-height: 180px; margin: 0; }
+
+        .teoria-table { width: 100%; border-collapse: collapse; margin: 30px auto; font-size: 12px; max-width: 1000px; box-shadow: 0 4px 10px rgba(0,0,0,0.05); }
+        .teoria-table th, .teoria-table td { border: 1px solid var(--border); padding: 12px; text-align: center; }
+        .teoria-table th { background-color: var(--primary); color: white; font-weight: bold; text-transform: uppercase; letter-spacing: 1px; }
+        .teoria-table tbody tr:nth-child(even) { background-color: #f8fafc; }
+        .teoria-table tbody tr:hover { background-color: #e0f2fe; transform: scale(1.01); transition: 0.2s; }
+        
+        .color-box { width: 40px; height: 20px; border-radius: 4px; display: inline-block; vertical-align: middle; border: 1px solid #ccc; box-shadow: inset 0 2px 4px rgba(0,0,0,0.2);}
+
+        /* --- FOOTER --- */
+        footer { background: var(--primary); color: #cbd5e1; text-align: center; padding: 25px 10px; margin-top: auto; border-top: 4px solid var(--accent); }
+        footer p { margin: 5px 0; }
+        footer strong { color: white; font-size: 17px; }
+    </style>
+</head>
+<body>
+
+    <header><h1>Software de Aprendizaje <br> Extrusión de Polímeros</h1></header>
+
+    <nav>
+        <button class="nav-btn active" onclick="showTab('inicio', this)">🏠 Inicio</button>
+        <button class="nav-btn" onclick="showTab('teoria', this)">📚 Teoría</button>
+        <button class="nav-btn" onclick="showTab('manual', this)">📋 Manual</button>
+        <button class="nav-btn" onclick="showTab('simulador', this)">🚀 Simulador</button>
+    </nav>
+
+    <div id="main-content">
+        <section id="inicio" class="section-sheet active" style="background: transparent; box-shadow: none; padding: 0;">
+            <div style="background: #ffffff; border-radius: 12px; box-shadow: 0 10px 30px rgba(0,0,0,0.08); border-top: 6px solid #d32f2f; padding: 60px 40px; text-align: center; max-width: 900px; margin: 20px auto;">
+                <h2 style="font-size: 42px; color: #0a192f; margin-bottom: 10px; font-weight: 900; letter-spacing: -0.5px; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;">Introducción a la Extrusión</h2>
+                <h3 style="font-size: 22px; color: #d32f2f; margin-top: 0; margin-bottom: 30px; font-weight: 700;">Módulo 05: Extrusión de polímeros</h3>
+                <p style="font-size: 17px; color: #64748b; line-height: 1.7; max-width: 750px; margin: 0 auto 40px;">
+                    Analiza el comportamiento termomecánico de la extrusión mediante modelos cinemáticos 2D acoplados y representaciones volumétricas 3D con orificios geométricos reales.
+                </p>
+                <div style="display: flex; gap: 15px; justify-content: center; flex-wrap: wrap;">
+                    <button style="background: #0a192f; color: #ffffff; border: none; padding: 14px 28px; border-radius: 6px; font-weight: 800; font-size: 14px; cursor: pointer; text-transform: uppercase; letter-spacing: 0.5px; transition: 0.2s;" onmouseover="this.style.transform='scale(1.05)'" onmouseout="this.style.transform='scale(1)'" onclick="document.querySelectorAll('.nav-btn')[3].click()">Abrir Visor 3D</button>
+                    
+                    <button style="background: #334155; color: #ffffff; border: none; padding: 14px 28px; border-radius: 6px; font-weight: 800; font-size: 14px; cursor: pointer; text-transform: uppercase; letter-spacing: 0.5px; transition: 0.2s;" onmouseover="this.style.transform='scale(1.05)'" onmouseout="this.style.transform='scale(1)'" onclick="document.querySelectorAll('.nav-btn')[1].click()">Compendio Teórico</button>
+                    
+                    <button style="background: #64748b; color: #ffffff; border: none; padding: 14px 28px; border-radius: 6px; font-weight: 800; font-size: 14px; cursor: pointer; text-transform: uppercase; letter-spacing: 0.5px; transition: 0.2s;" onmouseover="this.style.transform='scale(1.05)'" onmouseout="this.style.transform='scale(1)'" onclick="document.querySelectorAll('.nav-btn')[2].click()">Ver Manual</button>
+                </div>
+            </div>
+        </section>
+
+        <section id="teoria" class="section-sheet">
+            <div class="wrap info-content">
+                <h2>Fundamentos Científicos de los Polímeros y Procesos de Extrusión</h2>
+                
+                <div style="text-align: center; margin: 10px 0 25px 0;">
+                    <a href="https://polimerosdy.netlify.app/" target="_blank" class="btn-action" style="background: #0ea5e9; text-decoration: none; display: inline-block; box-shadow: 0 4px 15px rgba(14, 165, 233, 0.3);">
+                        🌐 Dirigirse a teoría profunda sobre polímeros
+                    </a>
+                </div>
+
+                <div class="sub-nav">
+                    <button class="sub-nav-btn active" onclick="showTeoriaTab('teo-fundamentos', this)">1. Química y Estructura Polimérica</button>
+                    <button class="sub-nav-btn" onclick="showTeoriaTab('teo-tecnologias', this)">2. Reología y Tecnologías de Extrusión</button>
+                    <button class="sub-nav-btn" onclick="showTeoriaTab('teo-parametros', this)">3. Propiedades y Control de Parámetros</button>
+                </div>
+
+                <div id="teo-fundamentos" class="teoria-sub-sheet active">
+                    <h3>Definición Termodinámica y Estructural</h3>
+                    <p>En el ámbito de la ciencia de materiales, un polímero no es simplemente un "plástico". Se define como una macromolécula de altísimo peso molecular (frecuentemente superior a 10,000 g/mol) constituida por la repetición sistemática de unidades estructurales básicas conocidas como monómeros, unidos mediante fuertes enlaces covalentes en su cadena principal. Las interacciones secundarias (Fuerzas de Van der Waals, puentes de hidrógeno) entre estas largas cadenas son las que dictan su comportamiento a nivel macroscópico, determinando propiedades cruciales como la viscosidad en estado fundido, la densidad y la resistencia al impacto.</p>
+                    <p>La distribución espacial y estérica de estos átomos (tacticidad) da origen a dos fases morfológicas coexistentes en estado sólido: la <strong>Fase Amorfa</strong>, caracterizada por un enmarañamiento aleatorio (modelo de ovillo aleatorio) que dota al material de ductilidad, flexibilidad y transparencia; y la <strong>Fase Cristalina</strong>, donde las cadenas se pliegan sobre sí mismas formando lamelas y esferulitas, aportando resistencia a la tracción, rigidez, opacidad y una barrera superior contra gases y solventes.</p>
+
+                    <h4>Clasificación Industrial por Comportamiento Termomecánico</h4>
+                    <div class="card-grid">
+                        <div class="teo-card">
+                            <strong>Termoplásticos</strong>
+                            <p>Son polímeros cuyas cadenas están unidas únicamente por fuerzas intermoleculares débiles. Al aplicar calor (energía térmica), estas fuerzas se superan, aumentando el volumen libre y permitiendo que las cadenas se deslicen unas sobre otras (flujo viscoso). Al enfriarse, las fuerzas se restablecen y el material se solidifica. Este ciclo es altamente reversible, lo que convierte a los termoplásticos (como el PVC, HDPE, y PET) en los candidatos exclusivos para los procesos de extrusión continua y reciclaje mecánico directo.</p>
+                        </div>
+                        <div class="teo-card red">
+                            <strong>Termoestables (Termofijos)</strong>
+                            <p>A diferencia de los termoplásticos, los termoestables experimentan un proceso de reticulación (cross-linking) químico durante su primer calentamiento. Se forman enlaces covalentes primarios entre las cadenas vecinas, creando una única e inmensa red tridimensional. Una vez "curados", es físicamente imposible volver a fundirlos; si se incrementa la temperatura de forma extrema, los enlaces covalentes se rompen y el material se degrada y carboniza directamente (Ej: Poliuretanos reticulados, resinas epóxicas, baquelita).</p>
+                        </div>
+                        <div class="teo-card green">
+                            <strong>Elastómeros</strong>
+                            <p>Poseen una morfología predominantemente amorfa con una temperatura de transición vítrea (T<sub>g</sub>) muy inferior a la temperatura ambiente, combinada con un grado muy leve de entrecruzamiento (como la vulcanización). Esta estructura única permite que las cadenas enrolladas se estiren bajo tensión mecánica (elasticidad) y, al retirar el esfuerzo, los puntos de entrecruzamiento actúen como "memoria", forzando a la red a volver a su conformación entrópica original y desordenada sin sufrir deformación plástica permanente.</p>
+                        </div>
+                    </div>
+                    
+                    <img src="https://i.ytimg.com/vi/rre5NaMCKjg/maxresdefault.jpg" class="teo-img" alt="Enlaces moleculares de Polímeros">
+
+                    <h4>Aplicaciones Industriales de Vanguardia</h4>
+                    <p>La combinación de baja densidad, moldeabilidad térmica y resistencia a la corrosión ha desplazado a los metales y cerámicos tradicionales en numerosas aplicaciones de ingeniería:</p>
+                    <div class="card-grid">
+                        <div class="teo-card purple">
+                            <strong>Construcción e Infraestructura Civil</strong>
+                            <p>Sustitución de tuberías de acero y concreto. Los polímeros como el PVC y el HDPE no sufren corrosión galvánica, ofrecen un coeficiente de fricción interno mínimo (reduciendo pérdidas de carga hidráulica) y poseen una vida útil que supera los 50 años en redes de agua potable, gas y alcantarillado subterráneo.</p>
+                            <img src="https://tuboplastic.com/wp-content/uploads/2024/10/pvc.jpg" class="teo-img" alt="Tuberías PVC Subterráneas">
+                        </div>
+                        
+                        <div class="teo-card orange">
+                            <strong>Empaque, Embalaje y Alta Barrera</strong>
+                            <p>El PET biaxialmente orientado revolucionó la industria de bebidas por su capacidad de retener presión de CO<sub>2</sub>. En la industria farmacéutica, se utilizan estructuras multicapa (polímeros coextruidos con láminas de aluminio) para crear empaques blíster que ofrecen barreras absolutas contra el oxígeno, la humedad y la luz, garantizando la estabilidad química de los medicamentos.</p>
+                            <div class="img-row">
+                                <img src="https://cdn.shopify.com/s/files/1/0593/4235/6578/files/PET-bottles-and-PET-advantages.jpg?v=1730003191" class="teo-img" alt="Botellas PET">
+                                <img src="https://cdn.unenvironment.org/styles/article_billboard_image/s3/2020-10/pexels-henrikas-mackevicius-4076532.jpg?itok=_FEseuDv" class="teo-img" alt="Empaque de medicamentos Biodegradable">
+                            </div>
+                        </div>
+
+                        <div class="teo-card teal">
+                            <strong>Ingeniería Biomédica y Prótesis</strong>
+                            <p>La biocompatibilidad (ausencia de respuesta inmunológica de rechazo) es clave. Polímeros de grado médico como el Poliuretano y el PTFE se usan en la fabricación de catéteres intravenosos flexibles. Además, biopolímeros como el PLA (Ácido Poliláctico) dominan la impresión 3D de órtesis personalizadas y estructuras óseas biodegradables que el cuerpo reabsorbe con el tiempo.</p>
+                            <div class="img-row">
+                                <img src="https://1.bp.blogspot.com/-nv2MhNpXflM/YLk4tGBz89I/AAAAAAAACvQ/qbHPnPoq00cGbQUmVsDk0t80qXEjOuunACNcBGAsYHQ/s16000/fe%25CC%2581rula-3d.jpg" class="teo-img" alt="Prótesis brazo impresa en 3D">
+                                <img src="https://bio.com.br/wp-content/uploads/2024/08/Os-Principais-Tipos-de-Cateteres-Biomedical3.webp" class="teo-img" alt="Tipos de Catéteres">
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div id="teo-tecnologias" class="teoria-sub-sheet">
+                    <h3>Reología del Fundido y Procesos de Extrusión Termomecánica</h3>
+                    <p>La extrusión es el proceso industrial primario por excelencia para la manufactura de productos poliméricos continuos. El equipo fundamental es la extrusora monohusillo, la cual se divide en tres zonas reológicas críticas:</p>
+                    <ul>
+                        <li><strong>Zona de Alimentación:</strong> Los gránulos (pellets) fríos ingresan por gravedad desde la tolva. El diseño de los filetes del husillo en esta zona es profundo para capturar el mayor volumen posible. La propulsión se basa en un principio de fricción: el polímero debe resbalar sobre el tornillo pero adherirse a las paredes del barril para avanzar hacia adelante.</li>
+                        <li><strong>Zona de Compresión (Transición):</strong> La profundidad del canal del husillo disminuye gradualmente. Esta reducción de volumen comprime el aire hacia atrás (eliminando burbujas) y somete al material a fuerzas de cizalladura (shear rate) masivas. El 80% del calor necesario para fundir el polímero proviene de la fricción interna (disipación viscosa) generada por esta cizalladura, no de las resistencias eléctricas del barril. El material cambia de estado sólido a una masa viscoelástica pseudoplástica.</li>
+                        <li><strong>Zona de Dosificación (Metering):</strong> El canal del husillo es poco profundo y constante. Su función es homogeneizar térmicamente la masa fundida y actuar como una bomba hidráulica, presurizando el polímero a niveles extremos (superiores a 3000 PSI) para forzarlo a atravesar las mallas de filtrado (breaker plate) y el dado o matriz final sin fluctuaciones de caudal (surging).</li>
+                    </ul>
+                    
+                    <img src="https://www.useon.es/wp-content/uploads/2022/07/Co-rotating-Twin-Screw-Extruder_SAT-Series.jpg" class="teo-img" alt="Máquina Extrusora Industrial">
+
+                    <h4>Clasificación Especializada de Procesos Continuos</h4>
+                    
+                    <div class="card-grid">
+                        <div class="teo-card">
+                            <strong>Extrusión de Tubería (Pipe Extrusion)</strong>
+                            <p>Utiliza una compleja matriz anular. El fluido rodea un mandril o "araña" central (torpedo) que crea el diámetro interno hueco. Al salir de la matriz, el tubo caliente es extremadamente blando; si entra directamente al agua, colapsaría por gravedad. Por ello, atraviesa primero una camisa calibradora al vacío bajo rocío de agua que congela su superficie externa, garantizando tolerancias dimensionales estrictas según la normativa.</p>
+                            <img src="https://www.everplast.com.tw/wp-content/uploads/2020/01/EMD-90-PVC-Pipe-Extrusion-Machine-Line-2.jpg" class="teo-img" alt="Máquina Extrusora de Tubería">
+                        </div>
+                        
+                        <div class="teo-card teal">
+                            <strong>Extrusión de Perfilería Compleja</strong>
+                            <p>Usada para geometrías asimétricas. El mayor desafío reológico aquí es el "Hinchamiento del Extruido" (Die Swell): los polímeros tienen memoria elástica; tras ser comprimidos severamente en la matriz, las cadenas se expanden lateralmente al salir a la atmósfera. Por tanto, el hueco en el acero de la matriz no es igual a la forma del producto final, sino que debe diseñarse con compensaciones reológicas avanzadas.</p>
+                            <img src="https://www.gestiondecompras.com/wp-content/uploads/2021/05/Plastic-extrusion-product-2.png" class="teo-img" alt="Perfiles Poliméricos">
+                        </div>
+                        
+                        <div class="teo-card orange">
+                            <strong>Extrusión de Lámina Plana y Calandrado (Sheet Extrusion)</strong>
+                            <p>Requiere una matriz con geometría interna tipo "percha de ropa" (Coat-hanger die) que distribuye el flujo cilíndrico del barril en un manto ancho y perfectamente uniforme. El polímero fundido no se enfría inmediatamente en agua, sino que es atrapado entre rodillos mecánicos altamente pulidos y refrigerados internamente (Calandras). Estos rodillos aplastan el material calibrando un espesor micrométrico y eliminando cualquier tensión residual antes del enfriamiento al aire.</p>
+                            <img src="https://hongjusilicone.com/wp-content/uploads/2023/03/R%E7%9A%84%E5%89%AF%E6%9C%AC-2.jpeg" class="teo-img" alt="Proceso de Calandrado de Lámina">
+                        </div>
+                        
+                        <div class="teo-card red">
+                            <strong>Recubrimiento de Conductores Eléctricos (Wire Coating)</strong>
+                            <p>Implementa un cabezal de extrusión cruzada (Cross-head extrusion) perpendicular a la máquina. Un hilo de cobre (conductor desnudo) entra por la parte trasera del cabezal, pasa por un tubo guía y se encuentra con el polímero fundido a altísima presión justo antes de la salida. El polímero envuelve el alambre sellándolo, y el conjunto se tracciona rápidamente hacia una extensa tina de agua para evitar la deformación del recubrimiento antes de ser enrollado en bobinadores industriales.</p>
+                            <img src="https://img.alicdn.com/imgextra/i1/6000000007804/O1CN012HOAk127WHOJL3nyk_!!6000000007804-0-tbvideo.jpg" class="teo-img" alt="Máquina de recubrimiento de cable">
+                            <div class="img-row">
+                                <img src="https://tse3.mm.bing.net/th/id/OIP.pwkSFoFC6sXxpBBz72o6WAHaB_?pid=Api&P=0&h=180" class="teo-img" alt="Cable unipolar recubierto">
+                                <img src="https://tse3.mm.bing.net/th/id/OIP.h9ZpQXDMoOrC3ufbqt6L6gHaHa?pid=Api&P=0&h=180" class="teo-img" alt="Cable multipolar recubierto">
+                            </div>
+                        </div>
+                        
+                        <div class="teo-card green">
+                            <strong>Doble Husillo y Compounding (Extrusión Reactiva)</strong>
+                            <p>Más que un proceso de conformado, es un proceso químico y físico intensivo. Emplea dos husillos que pueden girar en la misma dirección (co-rotantes) o en direcciones opuestas (contra-rotantes). Su geometría de tornillo modular (elementos de transporte intercalados con bloques amasadores) genera niveles de cizalladura brutales. Es el equipo necesario para "aleaciones" de polímeros, dispersión de pigmentos a nanoescala, adición de fibra de vidrio y devolatilización de gases tóxicos.</p>
+                            <img src="https://screwbarrelmanufacturer.com/wp-content/uploads/2022/07/Twin-Screw-Barrel-for-Extruder.jpg" class="teo-img" alt="Matriz Doble Husillo">
+                        </div>
+                    </div>
+                </div>
+
+                <div id="teo-parametros" class="teoria-sub-sheet">
+                    <h3>Análisis de Parámetros Termodinámicos y Control de Calidad</h3>
+                    <p>La selección precisa de los parámetros de extrusión está matemáticamente vinculada a la termodinámica del polímero. Operar una extrusora por debajo del punto de fusión incrementa la viscosidad exponencialmente, generando una sobrepresión que puede fracturar el barril de acero. Por el contrario, exceder la ventana de procesamiento recomendada rompe los enlaces covalentes de carbono, carbonizando el material y generando gases corrosivos (particularmente peligroso en el PVC, que libera Ácido Clorhídrico al degradarse).</p>
+
+                    <h4>Diccionario Técnico de Parámetros de Operación</h4>
+                    <div class="card-grid" style="grid-template-columns: 1fr;">
+                        <div class="teo-card dark" style="text-align: left; align-items: flex-start;">
+                            <strong>Temperatura de Fusión (T<sub>m</sub>)</strong>
+                            <p>Exclusiva de los polímeros semicristalinos. Es el punto termodinámico exacto donde la energía térmica supera la entalpía de cristalización, destruyendo las esferulitas ordenadas y convirtiendo el sólido en un líquido viscoso fluible. Los polímeros puramente amorfos (como el Poliestireno y el ABS) carecen de T<sub>m</sub>; en su lugar, se ablandan gradualmente sin un punto de fusión abrupto definido.</p>
+                        </div>
+                        <div class="teo-card dark" style="text-align: left; align-items: flex-start;">
+                            <strong>Temperatura de Transición Vítrea (T<sub>g</sub>)</strong>
+                            <p>Un parámetro vital en la ingeniería de polímeros. Representa el límite de temperatura en la fase amorfa donde las cadenas poliméricas adquieren suficiente volumen libre para iniciar movimientos segmentarios (rotación). Por debajo de la T<sub>g</sub>, el material es un vidrio duro y quebradizo. Por encima de la T<sub>g</sub>, se vuelve gomoso, tenaz y fácilmente deformable. Es la razón por la que una tubería de PVC (T<sub>g</sub> ~ 80°C) es rígida a temperatura ambiente, mientras que el Polietileno (T<sub>g</sub> negativa) es flexible.</p>
+                        </div>
+                        <div class="teo-card dark" style="text-align: left; align-items: flex-start;">
+                            <strong>Resistencia a la Tracción (Tensile Strength)</strong>
+                            <p>Expresada en Megapascales (MPa). Es el esfuerzo mecánico máximo (fuerza por unidad de área) que el polímero ya extruido y solidificado puede soportar bajo tensión longitudinal antes de sufrir un estrangulamiento irreversible (necking) o fracturarse. Un polímero altamente cristalino o orientado mecánicamente exhibirá mayor resistencia a la tracción.</p>
+                        </div>
+                        <div class="teo-card dark" style="text-align: left; align-items: flex-start;">
+                            <strong>Temperatura de Extrusión de Dado (Die Temperature)</strong>
+                            <p>Es la calibración térmica final del cabezal de acero de la máquina. Debe configurarse siempre entre 15°C y 40°C por encima de la T<sub>m</sub> (o del punto de reblandecimiento en amorfos). Esta sobretemperatura disminuye la viscosidad superficial del polímero al contacto con el acero, minimizando la fricción y previniendo el defecto conocido como "piel de tiburón" (Sharkskin) o fractura del fundido en la superficie del producto final.</p>
+                        </div>
+                        <div class="teo-card dark" style="text-align: left; align-items: flex-start;">
+                            <strong>Presión de Trabajo (Backpressure)</strong>
+                            <p>Medida comúnmente en PSI o MPa en la punta del husillo. Al restringir el flujo mediante mallas de filtrado y canales estrechos en el dado, se genera un "tapón" hidráulico. Esta alta contrapresión es absolutamente necesaria para asegurar que la matriz se llene completamente sin vacíos y para maximizar el cizallamiento y amasado interno que garantiza la homogeneización de la mezcla fundida.</p>
+                        </div>
+                    </div>
+                    
+                    <h4 style="margin-top: 40px; color: var(--primary); text-align: center; border-bottom: 2px solid var(--accent); display: inline-block; padding-bottom: 5px;">Tabla de Referencia para Simulaciones Termomecánicas</h4>
+                    <table class="teoria-table">
+                        <thead>
+                            <tr>
+                                <th>Polímero Base</th>
+                                <th>Temp. Fusión (T<sub>m</sub>) °C</th>
+                                <th>Trans. Vítrea (T<sub>g</sub>) °C</th>
+                                <th>Resist. Tracción (MPa)</th>
+                                <th>Temp. Extrusión (Dado) °C</th>
+                                <th>Presión Trabajo (PSI)</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr><td><strong>PVC (Rígido)</strong></td><td>100 - 260* (Degrada)</td><td>80</td><td>40 - 60</td><td>175 - 185</td><td>5000 - 7000</td></tr>
+                            <tr><td><strong>HDPE</strong></td><td>130</td><td>-120</td><td>20 - 30</td><td>190 - 210</td><td>3500 - 5500</td></tr>
+                            <tr><td><strong>LDPE</strong></td><td>110</td><td>-110</td><td>10 - 20</td><td>160 - 180</td><td>3000 - 5000</td></tr>
+                            <tr><td><strong>PP</strong></td><td>160 - 170</td><td>-10</td><td>30 - 40</td><td>210 - 230</td><td>3000 - 5000</td></tr>
+                            <tr><td><strong>ABS</strong></td><td>Amorfo (Fluye >105)</td><td>105</td><td>40 - 50</td><td>220 - 240</td><td>4000 - 6000</td></tr>
+                            <tr><td><strong>PS (Cristal)</strong></td><td>Amorfo (Fluye >180)</td><td>100</td><td>30 - 50</td><td>190 - 210</td><td>3000 - 4500</td></tr>
+                            <tr><td><strong>PET</strong></td><td>250 - 260</td><td>70 - 80</td><td>55 - 75</td><td>275 - 290</td><td>6000 - 8500</td></tr>
+                            <tr><td><strong>PTFE (Teflón)</strong></td><td>327</td><td>115</td><td>20 - 30</td><td>360 - 390</td><td>7000 - 10000+</td></tr>
+                            <tr><td><strong>PA (Nylon 6,6)</strong></td><td>255 - 265</td><td>50</td><td>70 - 85</td><td>260 - 270</td><td>4500 - 7000</td></tr>
+                            <tr><td><strong>PLA (Biopolímero)</strong></td><td>150 - 160</td><td>60</td><td>40 - 60</td><td>190 - 200</td><td>3500 - 6000</td></tr>
+                            <tr><td><strong>PU (Poliuretano TPU)</strong></td><td>150 - 180</td><td>-50 a 20</td><td>25 - 50</td><td>185 - 200</td><td>3000 - 5500</td></tr>
+                        </tbody>
+                    </table>
+                    <p style="font-size: 11px; color:#64748b; margin-top: 15px;"><em>* El PVC es altamente inestable a la temperatura. Comienza a liberar Ácido Clorhídrico (HCl) si se exponen a alta temperatura durante tiempos prolongados, por lo que su temperatura de trabajo se limita estrictamente antes de alcanzar fluidez total, requiriendo potentes estabilizadores térmicos.</em></p>
+                </div>
+            </div>
+        </section>
+
+        <section id="manual" class="section-sheet">
+            <div class="wrap info-content">
+                <h2>Guía Operativa y Protocolos del Laboratorio Virtual</h2>
+                <p>Bienvenido al entorno de simulación termomecánica. Para interactuar con la línea de extrusión virtual y analizar el comportamiento reológico en tiempo real, ejecute los siguientes pasos en estricto orden.</p>
+
+                <div class="card-grid">
+                    <div class="teo-card teal">
+                        <strong>Paso 1: Configuración de Parámetros</strong>
+                        <p>Acceda al panel superior y defina la matriz de producción. Seleccione el tipo de Polímero Base (la base de datos interna ajustará instantáneamente la temperatura del barril y la presión mostrada en pantalla) y la Geometría de Boquilla para determinar la línea de post-proceso.</p>
+                    </div>
+                    <div class="teo-card orange">
+                        <strong>Paso 2: Alimentación y Plastificación</strong>
+                        <p>Haga clic en el botón de acción "Cargar Tolva". En el visor 2D superior, analice el transporte de los sólidos por el husillo, la transición térmica en el horno (cámara de calefacción), y la acumulación de presión y fundición final del plástico al extremo derecho.</p>
+                    </div>
+                    <div class="teo-card purple">
+                        <strong>Paso 3: Cinemática Post-Extrusión (2D)</strong>
+                        <p>Una vez el fundido abandona la matriz, enfoque su atención en el visor medio. Dependiendo del proceso configurado, el simulador activará algoritmos distintos: calandrado con rodillos para laminación, bobinado rotativo acelerado para recubrimiento eléctrico, o impacto cíclico de sierra para tuberías y perfiles, todo bajo enfriamiento termodinámico con emisión de vapor.</p>
+                    </div>
+                    <div class="teo-card green">
+                        <strong>Paso 4: Inspección Volumétrica (3D)</strong>
+                        <p>Al final del panel, utilice el cursor del mouse para rotar (orbitar), ampliar (zoom) y desplazar la cámara en los visores tridimensionales. Estos entornos modelados con Three.js le permiten escrutar la geometría interna de los dados de extrusión de acero y la microestructura del producto final.</p>
+                    </div>
+                </div>
+                
+                <h3 style="margin-top: 30px;">🎨 Paleta de Referencia e Identificación de Polímeros</h3>
+                <p>En el software de simulación, la reología y el estado de la materia se visualizan mediante un código de colores de alto contraste diseñado bajo estándares de accesibilidad visual industrial.</p>
+
+                <table class="teoria-table" style="max-width: 700px;">
+                    <thead><tr><th>Nomenclatura (ISO)</th><th>Estructura Química Base</th><th>Identificador en Simulador</th></tr></thead>
+                    <tbody>
+                        <tr><td><strong>PVC</strong></td><td>Cloruro de Polivinilo (Rígido)</td><td><div class="color-box" style="background:#0072B2;"></div></td></tr>
+                        <tr><td><strong>HDPE</strong></td><td>Polietileno de Alta Densidad</td><td><div class="color-box" style="background:#E69F00;"></div></td></tr>
+                        <tr><td><strong>LDPE</strong></td><td>Polietileno de Baja Densidad</td><td><div class="color-box" style="background:#56B4E9;"></div></td></tr>
+                        <tr><td><strong>PP</strong></td><td>Polipropileno Isotáctico</td><td><div class="color-box" style="background:#009E73;"></div></td></tr>
+                        <tr><td><strong>ABS</strong></td><td>Acrilonitrilo Butadieno Estireno</td><td><div class="color-box" style="background:#F0E442;"></div></td></tr>
+                        <tr><td><strong>PS</strong></td><td>Poliestireno de Uso General</td><td><div class="color-box" style="background:#D55E00;"></div></td></tr>
+                        <tr><td><strong>PET</strong></td><td>Tereftalato de Polietileno</td><td><div class="color-box" style="background:#CC79A7;"></div></td></tr>
+                        <tr><td><strong>PTFE</strong></td><td>Politetrafluoroetileno (Teflón)</td><td><div class="color-box" style="background:#999999;"></div></td></tr>
+                        <tr><td><strong>PA</strong></td><td>Poliamida (Nylon 6,6)</td><td><div class="color-box" style="background:#333333;"></div></td></tr>
+                        <tr><td><strong>PLA</strong></td><td>Ácido Poliláctico (Biodegradable)</td><td><div class="color-box" style="background:#8DD3C7;"></div></td></tr>
+                        <tr><td><strong>PU / TPU</strong></td><td>Poliuretano Termoplástico</td><td><div class="color-box" style="background:#BEBADA;"></div></td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </section>
+
+        <section id="simulador" class="section-sheet">
+            <div class="sim-container">
+                <div class="top-bar">
+                    <div class="control-group">
+                        <label>🧪 Material (Polímero)</label>
+                        <select id="sel-mat">
+                            <option value="PVC">PVC (Cloruro de Polivinilo)</option>
+                            <option value="HDPE">HDPE (Alta Densidad)</option>
+                            <option value="LDPE">LDPE (Baja Densidad)</option>
+                            <option value="PP">PP (Polipropileno)</option>
+                            <option value="ABS">ABS (Acrilonitrilo Butadieno)</option>
+                            <option value="PS">PS (Poliestireno)</option>
+                            <option value="PET">PET (Tereftalato)</option>
+                            <option value="PTFE">PTFE (Teflón)</option>
+                            <option value="PA">PA (Nylon)</option>
+                            <option value="PLA">PLA (Ácido Poliláctico)</option>
+                            <option value="PU">PU (Poliuretano)</option>
+                        </select>
+                    </div>
+                    <div class="control-group">
+                        <label>📐 Tipo de Boquilla</label>
+                        <select id="sel-proc">
+                            <option value="tubo">Extrusión de Tubería</option>
+                            <option value="perfil">Extrusión de Ángulo (L)</option>
+                            <option value="lamina">Extrusión de Lámina Plana</option>
+                            <option value="recubrimiento">Recubrimiento de Cable</option>
+                            <option value="doble">Doble Husillo (Compounding)</option>
+                        </select>
+                    </div>
+                    <button class="btn-load" id="btn-load">⬇️ Cargar Tolva</button>
+                </div>
+
+                <div class="machine-assembly">
+                    <div class="view-2d">
+                        <div class="tag-overlay">1. Unidad de Plastificación 2D</div>
+                        <canvas id="canvas-2d"></canvas>
+                    </div>
+
+                    <div class="view-2d-post">
+                        <div class="tag-overlay">2. Línea de Enfriamiento y Producto 2D</div>
+                        <canvas id="canvas-2d-post"></canvas>
+                    </div>
+                    
+                    <div class="view-3d-row">
+                        <div class="canvas-3d-box" id="container-die">
+                            <div class="tag-overlay">Geometría de Boquilla (Matriz 3D)</div>
+                        </div>
+                        <div class="canvas-3d-box" id="container-prod">
+                            <div class="tag-overlay">Producto Final Extruido</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+    </div>
+
+    <footer>
+           SimuMetalurgia © 2026 <br><br> Desarrollo: <span>Andrés Felipe Caro Miranda & José Gabriel Franco Correa</span>  |  Asesoría: <span>Pro. Ana Emilse Coy Echeverria & Prof. Carlos Andrés Galán Pinilla.</span><br><br> Universidad Industrial de Santander | UIS.
+    </footer>
+
+    <script>
+        // --- BASE DE DATOS TÉCNICA ---
+        const dbMats = {
+            "PVC":  { color: "#0072B2", temp: 175, pres: 45 },
+            "HDPE": { color: "#E69F00", temp: 190, pres: 38 },
+            "LDPE": { color: "#56B4E9", temp: 160, pres: 35 },
+            "PP":   { color: "#009E73", temp: 220, pres: 35 },
+            "ABS":  { color: "#F0E442", temp: 230, pres: 40 },
+            "PS":   { color: "#D55E00", temp: 200, pres: 30 },
+            "PET":  { color: "#CC79A7", temp: 260, pres: 60 },
+            "PTFE": { color: "#999999", temp: 350, pres: 70 },
+            "PA":   { color: "#333333", temp: 250, pres: 50 },
+            "PLA":  { color: "#8DD3C7", temp: 200, pres: 42 },
+            "PU":   { color: "#BEBADA", temp: 180, pres: 40 }
+        };
+
+        const MPA_TO_PSI = 145.038;
+
+        let isSimActive = false;
+        let globalTime = 0;
+        let isHopperLoading = false;
+        
+        // Variables Simulador 1
+        let hopperPellets = [];
+        let screwPellets = [];
+        let extrudedLength = 0;
+        let meltTailX = 0; 
+        let drawnStartOnTop = 0; 
+        let topCanvasEmptied = false; 
+
+        // Variables Simulador 2 (Enfriamiento y Corte/Bobinado)
+        let isMaterialInPost = false;
+        let postHeadX = 0;
+        let postTailX = 0;
+        let cutPieces = [];
+        let totalCutLength = 0;
+        let bubbles = [];
+        let smokes = [];
+        let sawAnimTimer = 0; 
+        let tailEnteredSim2 = false;
+
+        function showTab(id, btn) {
+            document.querySelectorAll('.section-sheet').forEach(s => s.classList.remove('active'));
+            document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
+            document.getElementById(id).classList.add('active');
+            btn.classList.add('active');
+            if(id === 'simulador' && !isSimActive) { 
+                isSimActive = true; 
+                init3DEnvironments(); 
+                resizeCanvases();
+                animateSim(); 
+            }
+        }
+
+        function showTeoriaTab(id, btn) {
+            document.querySelectorAll('.teoria-sub-sheet').forEach(s => s.classList.remove('active'));
+            document.querySelectorAll('.sub-nav-btn').forEach(b => b.classList.remove('active'));
+            document.getElementById(id).classList.add('active');
+            btn.classList.add('active');
+        }
+
+        // --- EVENTOS ---
+        document.getElementById('sel-mat').addEventListener('change', () => { build3DModels(); resetMachine(); });
+        document.getElementById('sel-proc').addEventListener('change', () => { 
+            build3DModels(); 
+            setTimeout(() => { window.dispatchEvent(new Event('resize')); }, 50);
+            resetMachine();
+        });
+        
+        document.getElementById('btn-load').addEventListener('click', () => {
+            resetMachine();
+            isHopperLoading = true;
+            
+            const cvs2d = document.getElementById('canvas-2d');
+            const h = cvs2d.height || 320;
+            const groundY = h * 0.7;
+            
+            for(let i=0; i<250; i++) {
+                hopperPellets.push({ 
+                    x: 180 + (Math.random()-0.5)*30, 
+                    y: (groundY - 220) - Math.random()*80 
+                });
+            }
+        });
+
+        function resetMachine() {
+            hopperPellets = []; screwPellets = []; bubbles = []; smokes = [];
+            extrudedLength = 0; meltTailX = 0;
+            drawnStartOnTop = 0; topCanvasEmptied = false;
+            
+            isMaterialInPost = false;
+            postHeadX = 0; postTailX = 0; cutPieces = []; totalCutLength = 0;
+            sawAnimTimer = 0; tailEnteredSim2 = false;
+            isHopperLoading = false;
+        }
+
+        // --- MOTOR 2D 1 (EXTRUSORA) ---
+        function draw2D(t) {
+            const cvs2d = document.getElementById('canvas-2d');
+            if(!cvs2d) return;
+            const ctx2d = cvs2d.getContext('2d');
+            const mat = dbMats[document.getElementById('sel-mat').value];
+            const proc = document.getElementById('sel-proc').value;
+            const upperW = cvs2d.width; const h = cvs2d.height;
+            ctx2d.clearRect(0,0,upperW,h);
+
+            const groundY = h * 0.7;
+            const bStartX = 80; 
+            const upperEndX = upperW - 150; 
+            const ovenStartX = 250; 
+            const nozzleStart = upperEndX + 45;
+
+            if (meltTailX === 0) meltTailX = upperEndX;
+            if (drawnStartOnTop === 0) drawnStartOnTop = nozzleStart;
+
+            ctx2d.fillStyle = "rgba(225, 29, 72, 0.05)";
+            ctx2d.strokeStyle = "#e11d48"; ctx2d.lineWidth = 2; ctx2d.setLineDash([6, 4]);
+            ctx2d.fillRect(ovenStartX, groundY - 60, upperEndX - ovenStartX, 120);
+            ctx2d.strokeRect(ovenStartX, groundY - 60, upperEndX - ovenStartX, 120);
+            ctx2d.setLineDash([]);
+
+            ctx2d.fillStyle = "#e11d48"; ctx2d.font = "bold 15px Arial";
+            ctx2d.fillText("CÁMARA DE CALEFACCIÓN (HORNO)", ovenStartX + 20, groundY - 75);
+            ctx2d.fillText(`Temp: ${mat.temp} °C  |  Presión: ${Math.round(mat.pres * MPA_TO_PSI)} PSI`, ovenStartX + 20, groundY - 45);
+
+            ctx2d.fillStyle = "#ffffff";
+            ctx2d.fillRect(bStartX, groundY - 35, upperEndX - bStartX, 70);
+
+            ctx2d.fillStyle = "#334155"; ctx2d.fillRect(20, groundY - 50, 60, 100);
+
+            ctx2d.fillStyle = "#94a3b8"; ctx2d.beginPath();
+            ctx2d.moveTo(110, groundY - 180); ctx2d.lineTo(250, groundY - 180);
+            ctx2d.lineTo(200, groundY - 35); ctx2d.lineTo(160, groundY - 35);
+            ctx2d.fill(); ctx2d.stroke();
+
+            ctx2d.fillStyle = mat.color;
+            let row = 0; let col = 0;
+            
+            for(let i=0; i<hopperPellets.length; i++) {
+                let pY = (groundY - 42) - row * 6;
+                let progress = Math.max(0, (groundY - 35 - pY) / 145);
+                let minX = 160 - 50 * progress;
+                let maxX = 200 + 50 * progress;
+                
+                if (pY < groundY - 180) { 
+                    let hOver = (groundY - 180) - pY;
+                    minX = 110 + hOver * 1.5; maxX = 250 - hOver * 1.5;
+                    if (minX >= maxX) { minX = 180; maxX = 180; }
+                }
+                
+                let width = maxX - minX;
+                let pelletsInRow = Math.max(1, Math.floor(width / 6.5));
+                
+                if (col >= pelletsInRow) { col = 0; row++; i--; continue; }
+                
+                let spacing = width / (pelletsInRow + 1);
+                let targetX = minX + spacing * (col + 1);
+                
+                let p = hopperPellets[i];
+                p.x += (targetX - p.x) * 0.3; p.y += (pY - p.y) * 0.3;
+                
+                ctx2d.beginPath(); ctx2d.arc(p.x, p.y, 3.2, 0, Math.PI*2); ctx2d.fill();
+                col++;
+            }
+
+            if(isHopperLoading && hopperPellets.length > 0 && t % 4 === 0) {
+                hopperPellets.shift(); screwPellets.push({ x: 180, y: groundY }); 
+            }
+
+            for(let i=screwPellets.length-1; i>=0; i--) {
+                let sp = screwPellets[i];
+                sp.x += 2.5;
+                sp.y = groundY + Math.sin((sp.x - t*4)*0.05)*22; 
+                
+                let opacity = 1;
+                if(sp.x > ovenStartX) opacity = Math.max(0, 1 - (sp.x - ovenStartX) / 100);
+
+                if(sp.x > upperEndX) {
+                    screwPellets.splice(i, 1); 
+                    if (!topCanvasEmptied) {
+                        extrudedLength += 2.5; 
+                    }
+                } else if(opacity > 0) {
+                    ctx2d.fillStyle = mat.color; ctx2d.globalAlpha = opacity;
+                    ctx2d.beginPath(); ctx2d.arc(sp.x, sp.y, 5, 0, Math.PI*2); ctx2d.fill(); 
+                    ctx2d.globalAlpha = 1;
+                }
+            }
+
+            let hasPelletsBeforeOven = screwPellets.some(p => p.x <= ovenStartX) || hopperPellets.length > 0;
+            if (hasPelletsBeforeOven) {
+                meltTailX = ovenStartX; 
+            } else if (screwPellets.length > 0) {
+                let lastPellet = screwPellets[screwPellets.length - 1]; 
+                if (lastPellet.x > ovenStartX) meltTailX = lastPellet.x;
+            } else if (isHopperLoading) {
+                if (meltTailX < upperEndX) {
+                    meltTailX += 2.5;
+                    if (!topCanvasEmptied) {
+                        extrudedLength += 2.5; 
+                    }
+                } else {
+                    topCanvasEmptied = true; 
+                }
+            } else {
+                meltTailX = upperEndX;
+            }
+
+            if (topCanvasEmptied && extrudedLength > 0) {
+                if (drawnStartOnTop <= upperW) {
+                    drawnStartOnTop += 2.5; 
+                }
+                if (drawnStartOnTop >= upperW) {
+                    tailEnteredSim2 = true;
+                }
+            }
+
+            if (meltTailX < upperEndX - 5) {
+                let grad = ctx2d.createLinearGradient(meltTailX, 0, upperEndX, 0);
+                grad.addColorStop(0, "transparent"); 
+                let fadeStop = Math.min(1, 60 / (upperEndX - meltTailX));
+                grad.addColorStop(fadeStop, mat.color); 
+                grad.addColorStop(1, mat.color);
+                ctx2d.fillStyle = grad; 
+                ctx2d.fillRect(meltTailX, groundY - 35, upperEndX - meltTailX, 70);
+            }
+
+            ctx2d.strokeStyle = "#cbd5e1"; ctx2d.lineWidth = 6; ctx2d.beginPath();
+            let isSpinning = isHopperLoading && (hopperPellets.length > 0 || screwPellets.length > 0 || meltTailX < upperEndX);
+            let timeOffset = isSpinning ? t * 4 : 0;
+            
+            if(proc === 'doble') {
+                for(let x = bStartX; x < upperEndX; x+=8) {
+                    let y1 = groundY - 10 + Math.sin((x - timeOffset)*0.05) * 15;
+                    let y2 = groundY + 10 + Math.sin((x - timeOffset)*0.05) * 15;
+                    if(x===bStartX) { ctx2d.moveTo(x,y1); } else { ctx2d.lineTo(x,y1); }
+                    ctx2d.moveTo(x, y2); ctx2d.lineTo(x-4, groundY + 10 + Math.sin((x-4 - timeOffset)*0.05) * 15);
+                }
+            } else {
+                for(let x = bStartX; x < upperEndX; x+=8) {
+                    let y = groundY + Math.sin((x - timeOffset)*0.05) * 30;
+                    if(x===bStartX) ctx2d.moveTo(x,y); else ctx2d.lineTo(x,y);
+                }
+            }
+            ctx2d.stroke();
+            ctx2d.fillStyle = "#94a3b8"; ctx2d.fillRect(bStartX, groundY - 6, upperEndX - bStartX, 12);
+
+            ctx2d.strokeStyle = "#475569"; ctx2d.lineWidth = 6;
+            ctx2d.strokeRect(bStartX, groundY-35, upperEndX-bStartX, 70);
+            ctx2d.fillStyle = "#334155"; ctx2d.fillRect(upperEndX, groundY-45, 30, 90);
+            ctx2d.fillStyle = "#1e293b"; ctx2d.fillRect(upperEndX + 30, groundY-20, 15, 40);
+
+            if (extrudedLength > 0 && drawnStartOnTop < upperW) {
+                ctx2d.fillStyle = mat.color; 
+                let drawX = drawnStartOnTop;
+                let tipX = Math.min(nozzleStart + extrudedLength, upperW);
+                let drawLen = tipX - drawX;
+                if (drawLen > 0) {
+                    ctx2d.fillRect(drawX, groundY - 12, drawLen, 24);
+                }
+            }
+        }
+
+        // --- MOTOR 2D 2 (POST-PROCESO: ENFRIAMIENTO Y CORTE/BOBINADO) ---
+        function draw2DPost(t) {
+            const cvsPost = document.getElementById('canvas-2d-post');
+            if(!cvsPost) return;
+            const ctxPost = cvsPost.getContext('2d');
+            const mat = dbMats[document.getElementById('sel-mat').value];
+            const proc = document.getElementById('sel-proc').value;
+            const w = cvsPost.width; const h = cvsPost.height;
+            const upperW = document.getElementById('canvas-2d').width;
+            
+            ctxPost.clearRect(0,0,w,h);
+
+            const groundY = h * 0.6;
+            const bathStartX = 120; 
+            const bathEndX = w - 300;
+            const cX = w - 150; 
+            const nozzleStartOnUpper = upperW - 150 + 45; 
+            const distToEdge = upperW - nozzleStartOnUpper;
+
+            let speedPost = 4.0; 
+
+            // 1. Sincronización Matemática de Fronteras
+            if (extrudedLength > distToEdge && !isMaterialInPost) {
+                isMaterialInPost = true;
+                postHeadX = 0; 
+                postTailX = 0;
+            }
+
+            if (isMaterialInPost) {
+                postHeadX += speedPost;
+                if (tailEnteredSim2) {
+                    postTailX += speedPost; 
+                }
+            }
+
+            let uncutHeadX = postHeadX - totalCutLength;
+            let standardCutLength = 120;
+
+            if (proc === 'recubrimiento') {
+                // LÓGICA DE BOBINADOR
+                if (!tailEnteredSim2 || postTailX < cX) {
+                    if (uncutHeadX > cX) {
+                        let wrappedAmount = uncutHeadX - cX;
+                        totalCutLength += wrappedAmount;
+                        uncutHeadX = cX; 
+                    }
+                } else {
+                    if (uncutHeadX > cX) {
+                        let finalLen = uncutHeadX - cX;
+                        totalCutLength += finalLen;
+                        uncutHeadX = cX;
+                    }
+                    postTailX = cX; 
+                    
+                    if (postHeadX > cX) {
+                        isMaterialInPost = false;
+                        extrudedLength = 0;
+                        drawnStartOnTop = nozzleStartOnUpper;
+                        topCanvasEmptied = false;
+                        isHopperLoading = false;
+                        tailEnteredSim2 = false;
+                    }
+                }
+            } else {
+                // LÓGICA DE CORTE ESTÁNDAR
+                if (sawAnimTimer > 0) sawAnimTimer--;
+                
+                if (!tailEnteredSim2 || postTailX < cX) {
+                    if (uncutHeadX >= cX + standardCutLength) {
+                        cutPieces.push({ x: cX, length: standardCutLength });
+                        totalCutLength += standardCutLength;
+                        uncutHeadX = postHeadX - totalCutLength; 
+                        sawAnimTimer = 15; 
+                    }
+                } else {
+                    if (uncutHeadX > cX) {
+                        let finalLen = uncutHeadX - cX;
+                        if (finalLen > 5) { 
+                            cutPieces.push({ x: cX, length: finalLen });
+                            sawAnimTimer = 15;
+                        }
+                        totalCutLength += finalLen;
+                        uncutHeadX = cX;
+                    }
+                    
+                    postTailX = cX; 
+                    
+                    if (cutPieces.length === 0 && sawAnimTimer === 0) {
+                        isMaterialInPost = false;
+                        extrudedLength = 0;
+                        drawnStartOnTop = nozzleStartOnUpper;
+                        topCanvasEmptied = false;
+                        isHopperLoading = false;
+                        tailEnteredSim2 = false;
+                    }
+                }
+            }
+
+            if (!isMaterialInPost) {
+                smokes = []; bubbles = []; sawAnimTimer = 0;
+                postHeadX = 0; postTailX = 0; totalCutLength = 0;
+                drawPostStaticElements(ctxPost, w, groundY, bathStartX, bathEndX, cX, 0, proc, 0, false, false, totalCutLength, mat.color);
+                return; 
+            }
+
+            // 2. Humo/Vapor Térmico en la entrada
+            let preRollX = 75; 
+            let smokeAreaEnd = proc === 'lamina' ? preRollX : bathStartX;
+            
+            let materialIsHot = (!tailEnteredSim2 || (uncutHeadX > 0 && postTailX < smokeAreaEnd));
+            if (materialIsHot && smokes.length < 15 && Math.random() < 0.5) {
+                let smokeDrawX = 0;
+                if (postTailX > 0 && postTailX < smokeAreaEnd) {
+                    smokeDrawX = postTailX + Math.random() * (smokeAreaEnd - postTailX);
+                } else {
+                    smokeDrawX = Math.random() * smokeAreaEnd;
+                }
+                
+                if (smokeDrawX < uncutHeadX) {
+                    smokes.push({
+                        x: smokeDrawX, y: groundY - 15, r: Math.random() * 4 + 3,
+                        speed: 0.5 + Math.random() * 1, life: 1.0
+                    });
+                }
+            }
+            for (let i = smokes.length - 1; i >= 0; i--) {
+                let s = smokes[i];
+                s.y -= s.speed; s.x += (Math.random() - 0.5) * 1; s.life -= 0.02;
+                ctxPost.fillStyle = `rgba(148, 163, 184, ${s.life * 0.5})`;
+                ctxPost.beginPath(); ctxPost.arc(s.x, s.y, s.r + (1-s.life)*5, 0, Math.PI*2); ctxPost.fill();
+                if (s.life <= 0) smokes.splice(i, 1);
+            }
+
+            // 3. Dibujar Tira Continua Uncut cruzando
+            let thickness = proc === 'lamina' ? 8 : (proc === 'doble' ? 6 : 24);
+            let preThickness = proc === 'lamina' ? 18 : thickness;
+            
+            let drawHeadVisible = uncutHeadX; 
+            
+            if (drawHeadVisible > postTailX) {
+                ctxPost.fillStyle = mat.color;
+                if (proc === 'doble') {
+                    ctxPost.fillRect(postTailX, groundY - 10, drawHeadVisible - postTailX, thickness);
+                    ctxPost.fillRect(postTailX, groundY + 4, drawHeadVisible - postTailX, thickness);
+                } else if (proc === 'lamina') {
+                    if (postTailX < preRollX) {
+                        let seg1Head = Math.min(drawHeadVisible, preRollX);
+                        ctxPost.fillRect(postTailX, groundY - preThickness/2, seg1Head - postTailX, preThickness);
+                        if (drawHeadVisible > preRollX) {
+                            ctxPost.fillRect(preRollX, groundY - thickness/2, drawHeadVisible - preRollX, thickness);
+                        }
+                    } else {
+                        ctxPost.fillRect(postTailX, groundY - thickness/2, drawHeadVisible - postTailX, thickness);
+                    }
+                } else if (proc === 'recubrimiento') {
+                    ctxPost.fillRect(postTailX, groundY - thickness/2, drawHeadVisible - postTailX, thickness);
+                    ctxPost.fillStyle = "#b45309"; 
+                    ctxPost.fillRect(postTailX, groundY - 2, drawHeadVisible - postTailX, 4);
+                } else {
+                    ctxPost.fillRect(postTailX, groundY - thickness/2, drawHeadVisible - postTailX, thickness);
+                }
+            }
+
+            // Dibujar los elementos estáticos y mecánicos
+            let sawYOffset = sawAnimTimer > 0 ? Math.sin((1 - sawAnimTimer / 15) * Math.PI) * 26 : 0;
+            drawPostStaticElements(ctxPost, w, groundY, bathStartX, bathEndX, cX, sawYOffset, proc, t, true, postTailX < cX, totalCutLength, mat.color);
+
+            // 4. Burbujas
+            let bathMatStart = Math.max(bathStartX, postTailX);
+            let bathMatEnd = Math.min(bathEndX, uncutHeadX);
+
+            if (bathMatEnd > bathMatStart && Math.random() < 0.6) {
+                bubbles.push({
+                    x: bathMatStart + Math.random() * (bathMatEnd - bathMatStart),
+                    y: groundY + 10 + Math.random() * 10,
+                    r: Math.random() * 3 + 2,
+                    speed: 1.5 + Math.random() * 2
+                });
+            }
+
+            ctxPost.fillStyle = "rgba(255, 255, 255, 0.6)";
+            for (let i = bubbles.length - 1; i >= 0; i--) {
+                let b = bubbles[i];
+                b.y -= b.speed;
+                b.x += Math.sin(t * 0.1 + b.y) * 1; 
+                ctxPost.beginPath(); ctxPost.arc(b.x, b.y, b.r, 0, Math.PI*2); ctxPost.fill();
+                if (b.y < groundY - 35) bubbles.splice(i, 1); 
+            }
+
+            // 5. Dibujar Piezas Cortadas
+            if (proc !== 'recubrimiento' && cutPieces.length > 0) {
+                let pThickness = proc === 'lamina' ? 8 : (proc === 'doble' ? 6 : 24);
+                for (let i = cutPieces.length - 1; i >= 0; i--) {
+                    let cp = cutPieces[i];
+                    cp.x += speedPost + 1.5; 
+                    
+                    ctxPost.fillStyle = mat.color;
+                    if (proc === 'doble') {
+                        ctxPost.fillRect(cp.x, groundY - 10, cp.length, pThickness);
+                        ctxPost.fillRect(cp.x, groundY + 4, cp.length, pThickness);
+                    } else {
+                        ctxPost.fillRect(cp.x, groundY - pThickness/2, cp.length, pThickness);
+                    }
+                    
+                    if (cp.x > w + 100) cutPieces.splice(i, 1);
+                }
+            }
+        }
+
+        function drawPostStaticElements(ctxPost, w, groundY, bathStartX, bathEndX, cX, sawYOffset, proc, t, isMaterialInPost, tailBeforeSaw, totalWrapped, matColor) {
+            let preRollX = 75; 
+            
+            if (proc === 'lamina') {
+                ctxPost.fillStyle = "#64748b";
+                ctxPost.beginPath(); ctxPost.arc(preRollX, groundY - 18, 14, 0, Math.PI*2); ctxPost.fill();
+                ctxPost.beginPath(); ctxPost.arc(preRollX, groundY + 18, 14, 0, Math.PI*2); ctxPost.fill();
+                
+                ctxPost.strokeStyle = "#1e293b"; ctxPost.lineWidth = 2;
+                let rotOffset = (isMaterialInPost && tailBeforeSaw) ? t*0.15 : 0;
+                
+                ctxPost.beginPath(); ctxPost.moveTo(preRollX, groundY-18); ctxPost.lineTo(preRollX + Math.cos(rotOffset)*14, groundY-18 + Math.sin(rotOffset)*14); ctxPost.stroke();
+                ctxPost.beginPath(); ctxPost.moveTo(preRollX, groundY+18); ctxPost.lineTo(preRollX + Math.cos(-rotOffset)*14, groundY+18 + Math.sin(-rotOffset)*14); ctxPost.stroke();
+
+                ctxPost.fillStyle = "#334155"; ctxPost.font = "bold 10px Arial";
+                ctxPost.fillText("CALANDRADO", preRollX - 35, groundY - 35);
+            }
+
+            ctxPost.fillStyle = "rgba(14, 165, 233, 0.15)";
+            ctxPost.strokeStyle = "#0ea5e9"; ctxPost.lineWidth = 2;
+            ctxPost.fillRect(bathStartX, groundY - 40, bathEndX - bathStartX, 80);
+            ctxPost.strokeRect(bathStartX, groundY - 40, bathEndX - bathStartX, 80);
+            ctxPost.fillStyle = "#0ea5e9"; ctxPost.font = "bold 14px Arial";
+            ctxPost.fillText("TINA DE ENFRIAMIENTO", bathStartX + 20, groundY - 50);
+
+            if(proc === 'lamina') {
+                for(let i=0; i<3; i++) {
+                    let rX = bathStartX + 60 + i * 100;
+                    if(rX < bathEndX - 30) {
+                        ctxPost.fillStyle = "#94a3b8";
+                        ctxPost.beginPath(); ctxPost.arc(rX, groundY - 22, 16, 0, Math.PI*2); ctxPost.fill();
+                        ctxPost.beginPath(); ctxPost.arc(rX, groundY + 22, 16, 0, Math.PI*2); ctxPost.fill();
+                        
+                        ctxPost.strokeStyle = "#334155"; ctxPost.lineWidth = 2;
+                        let rotOffset = (isMaterialInPost && tailBeforeSaw) ? t*0.1 : 0;
+                        ctxPost.beginPath(); ctxPost.moveTo(rX, groundY-22); ctxPost.lineTo(rX + Math.cos(rotOffset)*16, groundY-22 + Math.sin(rotOffset)*16); ctxPost.stroke();
+                        ctxPost.beginPath(); ctxPost.moveTo(rX, groundY+22); ctxPost.lineTo(rX + Math.cos(-rotOffset)*16, groundY+22 + Math.sin(-rotOffset)*16); ctxPost.stroke();
+                    }
+                }
+            }
+
+            if (proc === 'recubrimiento') {
+                let bobinadorY = groundY - 25;
+                ctxPost.save();
+                ctxPost.translate(cX, bobinadorY); 
+                
+                let bobRot = (isMaterialInPost && tailBeforeSaw) ? t * 0.1 : 0;
+                ctxPost.rotate(bobRot);
+
+                ctxPost.beginPath(); ctxPost.arc(0, 0, 35, 0, Math.PI*2);
+                ctxPost.fillStyle = "#64748b"; ctxPost.fill();
+                ctxPost.lineWidth = 4; ctxPost.strokeStyle = "#1e293b"; ctxPost.stroke();
+                
+                ctxPost.beginPath();
+                ctxPost.moveTo(-35, 0); ctxPost.lineTo(35, 0);
+                ctxPost.moveTo(0, -35); ctxPost.lineTo(0, 35);
+                ctxPost.stroke();
+
+                if (totalWrapped > 0) {
+                    let wrappedRadius = 10 + Math.min(22, totalWrapped * 0.005);
+                    ctxPost.beginPath(); ctxPost.arc(0, 0, wrappedRadius, 0, Math.PI*2);
+                    ctxPost.fillStyle = matColor || "#000"; ctxPost.fill();
+                }
+
+                ctxPost.restore();
+
+                ctxPost.fillStyle = "#475569";
+                ctxPost.fillRect(cX - 15, bobinadorY, 30, 50); 
+                ctxPost.fillStyle = "#1e293b"; ctxPost.font = "bold 14px Arial";
+                ctxPost.fillText("BOBINADOR", cX - 45, bobinadorY - 45);
+
+            } else {
+                let sawBaseY = groundY - 38;
+                ctxPost.save();
+                ctxPost.translate(cX, sawBaseY + sawYOffset); 
+                
+                let sawRot = (isMaterialInPost && tailBeforeSaw) ? t * 0.5 : 0;
+                ctxPost.rotate(sawRot);
+
+                ctxPost.beginPath(); ctxPost.arc(0, 0, 25, 0, Math.PI*2);
+                ctxPost.fillStyle = "#94a3b8"; ctxPost.fill();
+                ctxPost.lineWidth = 2; ctxPost.strokeStyle = "#475569"; ctxPost.stroke();
+
+                ctxPost.fillStyle = "#1e293b";
+                ctxPost.beginPath();
+                let teethCount = 20;
+                for(let i=0; i<teethCount; i++) {
+                    let angle = (i / teethCount) * Math.PI * 2;
+                    let nextAngle = ((i + 0.3) / teethCount) * Math.PI * 2;
+                    ctxPost.moveTo(Math.cos(angle)*25, Math.sin(angle)*25);
+                    ctxPost.lineTo(Math.cos(angle)*32, Math.sin(angle)*32); 
+                    ctxPost.lineTo(Math.cos(nextAngle)*25, Math.sin(nextAngle)*25);
+                }
+                ctxPost.fill();
+
+                ctxPost.beginPath(); ctxPost.arc(0, 0, 5, 0, Math.PI*2);
+                ctxPost.fillStyle = "#cbd5e1"; ctxPost.fill();
+                ctxPost.restore();
+
+                ctxPost.save();
+                ctxPost.translate(cX, sawBaseY + sawYOffset);
+                ctxPost.beginPath();
+                ctxPost.arc(0, 0, 36, Math.PI, 0); 
+                ctxPost.lineTo(36, -10);
+                ctxPost.lineTo(-36, -10);
+                ctxPost.fillStyle = "#e11d48"; ctxPost.fill();
+                ctxPost.restore();
+
+                ctxPost.fillStyle = "#475569";
+                ctxPost.fillRect(cX - 20, sawBaseY - 45, 40, 45); 
+
+                ctxPost.fillStyle = "#1e293b"; ctxPost.font = "bold 14px Arial";
+                ctxPost.fillText("SIERRA DE CORTE", cX - 60, sawBaseY - 55);
+            }
+        }
+
+        // --- MOTOR 3D ---
+        let sceneD, sceneP, camD, camP, rendD, rendP, ctrlD, ctrlP, groupD, groupP;
+
+        function init3DEnvironments() {
+            const setup = (id) => {
+                const container = document.getElementById(id);
+                const scene = new THREE.Scene(); scene.background = new THREE.Color(0xf8fafc);
+                const camera = new THREE.PerspectiveCamera(45, container.clientWidth/container.clientHeight, 0.1, 100);
+                camera.position.set(6, 4, 8);
+                const renderer = new THREE.WebGLRenderer({ antialias: true });
+                renderer.setSize(container.clientWidth, container.clientHeight);
+                container.appendChild(renderer.domElement);
+                const controls = new THREE.OrbitControls(camera, renderer.domElement);
+                controls.enableDamping = true;
+                
+                scene.add(new THREE.AmbientLight(0xffffff, 0.9));
+                const dl = new THREE.DirectionalLight(0xffffff, 0.7); dl.position.set(5, 10, 5); scene.add(dl);
+                const dl2 = new THREE.DirectionalLight(0xffffff, 0.5); dl2.position.set(-5, -5, -5); scene.add(dl2);
+                
+                const group = new THREE.Group(); scene.add(group);
+                return { scene, camera, renderer, controls, group };
+            };
+
+            const d = setup('container-die'); sceneD = d.scene; camD = d.camera; rendD = d.renderer; ctrlD = d.controls; groupD = d.group;
+            const p = setup('container-prod'); sceneP = p.scene; camP = p.camera; rendP = p.renderer; ctrlP = p.controls; groupP = p.group;
+
+            build3DModels();
+        }
+
+        function createHollowShape(outerFunc, innerFunc, depth) {
+            const shape = new THREE.Shape(); outerFunc(shape);
+            if(innerFunc) { const hole = new THREE.Path(); innerFunc(hole); shape.holes.push(hole); }
+            const geo = new THREE.ExtrudeGeometry(shape, { depth: depth, bevelEnabled: false, curveSegments: 32 }); geo.center(); return geo;
+        }
+
+        function build3DModels() {
+            if(!groupD) return;
+            const proc = document.getElementById('sel-proc').value;
+            const mat = dbMats[document.getElementById('sel-mat').value];
+            
+            const steel = new THREE.MeshStandardMaterial({ color: 0x94a3b8, metalness: 0.9, roughness: 0.2, side: THREE.DoubleSide });
+            const poly = new THREE.MeshPhysicalMaterial({ color: mat.color, roughness: 0.2, clearcoat: 0.8, side: THREE.DoubleSide });
+
+            [groupD, groupP].forEach(g => { while(g.children.length > 0) g.remove(g.children[0]); });
+
+            try {
+                if(proc === 'tubo') {
+                    const dieOuterGeo = createHollowShape(
+                        s => s.absarc(0,0, 4, 0, Math.PI*2, false),
+                        h => h.absarc(0,0, 2.2, 0, Math.PI*2, true), 2
+                    );
+                    groupD.add(new THREE.Mesh(dieOuterGeo, steel));
+                    
+                    const mandrelGeo = new THREE.CylinderGeometry(1.6, 1.6, 2, 32);
+                    mandrelGeo.rotateX(Math.PI/2);
+                    groupD.add(new THREE.Mesh(mandrelGeo, steel));
+                    
+                    const pGeo = createHollowShape(
+                        s => s.absarc(0,0, 2.2, 0, Math.PI*2, false),
+                        h => h.absarc(0,0, 1.6, 0, Math.PI*2, true), 10
+                    );
+                    groupP.add(new THREE.Mesh(pGeo, poly));
+                } 
+                else if(proc === 'perfil') {
+                    const dieGeo = createHollowShape(
+                        s => s.absarc(0,0, 4, 0, Math.PI*2, false),
+                        h => { h.moveTo(-1,-1); h.lineTo(-1,1.5); h.lineTo(-0.2,1.5); h.lineTo(-0.2,-0.2); h.lineTo(1.5,-0.2); h.lineTo(1.5,-1); }, 2
+                    );
+                    groupD.add(new THREE.Mesh(dieGeo, steel));
+                    
+                    const pShape = new THREE.Shape();
+                    pShape.moveTo(-1,-1); pShape.lineTo(1.5,-1); pShape.lineTo(1.5,-0.2); pShape.lineTo(-0.2,-0.2); pShape.lineTo(-0.2,1.5); pShape.lineTo(-1,1.5);
+                    const pGeo = new THREE.ExtrudeGeometry(pShape, { depth: 10, bevelEnabled: false }); pGeo.center();
+                    groupP.add(new THREE.Mesh(pGeo, poly));
+                } 
+                else if(proc === 'lamina') {
+                    const dieGeo = createHollowShape(
+                        s => { s.moveTo(-5,-2.5); s.lineTo(5,-2.5); s.lineTo(5,2.5); s.lineTo(-5,2.5); },
+                        h => { h.moveTo(-3.5,-0.2); h.lineTo(-3.5,0.2); h.lineTo(3.5,0.2); h.lineTo(3.5,-0.2); }, 2
+                    );
+                    groupD.add(new THREE.Mesh(dieGeo, steel));
+                    groupP.add(new THREE.Mesh(new THREE.BoxGeometry(7, 0.4, 10), poly));
+                }
+                else if(proc === 'recubrimiento') {
+                    const dieOuterGeo = createHollowShape(
+                        s => s.absarc(0,0, 4, 0, Math.PI*2, false),
+                        h => h.absarc(0,0, 1.2, 0, Math.PI*2, true), 2
+                    );
+                    groupD.add(new THREE.Mesh(dieOuterGeo, steel));
+
+                    const wireInGeo = new THREE.CylinderGeometry(0.4, 0.4, 10, 32);
+                    wireInGeo.rotateX(Math.PI/2); 
+                    const wireIn = new THREE.Mesh(wireInGeo, new THREE.MeshStandardMaterial({color: 0xb45309}));
+                    groupD.add(wireIn);
+                    
+                    const pGeoOut = createHollowShape(
+                        s => s.absarc(0,0, 1.2, 0, Math.PI*2, false),
+                        h => h.absarc(0,0, 0.4, 0, Math.PI*2, true), 10
+                    );
+                    const wireOut = new THREE.Mesh(pGeoOut, poly);
+                    groupP.add(wireOut);
+
+                    const innerWireGeo = new THREE.CylinderGeometry(0.4, 0.4, 10.2, 32);
+                    innerWireGeo.rotateX(Math.PI/2); 
+                    const innerWire = new THREE.Mesh(innerWireGeo, new THREE.MeshStandardMaterial({color: 0xb45309}));
+                    groupP.add(innerWire);
+                }
+                else if (proc === 'doble') {
+                    const shape = new THREE.Shape(); shape.absarc(0,0, 4, 0, Math.PI*2, false);
+                    [ [1.5,1.5], [-1.5,1.5], [1.5,-1.5], [-1.5,-1.5] ].forEach(pos => {
+                        const hole = new THREE.Path(); hole.absarc(pos[0], pos[1], 0.4, 0, Math.PI*2, true); shape.holes.push(hole);
+                    });
+                    const dieGeo = new THREE.ExtrudeGeometry(shape, { depth: 2, bevelEnabled: false, curveSegments: 32 }); dieGeo.center();
+                    groupD.add(new THREE.Mesh(dieGeo, steel));
+
+                    for(let i=0; i<4; i++) {
+                        const strand = new THREE.Mesh(new THREE.CylinderGeometry(0.4, 0.4, 10, 16), poly);
+                        strand.rotation.x = Math.PI/2; strand.position.set((i%2===0)?1.5:-1.5, (i<2)?1.5:-1.5, 0); groupP.add(strand);
+                    }
+                }
+            } catch (err) { console.error("Error generating 3D geometry:", err); }
+        }
+
+        function animateSim() {
+            if(!isSimActive) return;
+            requestAnimationFrame(animateSim);
+            globalTime++;
+            
+            try { 
+                draw2D(globalTime); 
+                draw2DPost(globalTime);
+            } catch(e){ console.error(e); }
+
+            if(groupD && groupP) {
+                groupD.rotation.y += 0.005; groupP.rotation.y += 0.01;
+            }
+
+            if(ctrlD) ctrlD.update(); if(ctrlP) ctrlP.update();
+            if(rendD) rendD.render(sceneD, camD);
+            if(rendP) rendP.render(sceneP, camP);
+        }
+
+        function resizeCanvases() {
+            const cvs2d = document.getElementById('canvas-2d');
+            const cvs2dPost = document.getElementById('canvas-2d-post');
+            if(cvs2d) { cvs2d.width = cvs2d.parentElement.clientWidth; cvs2d.height = cvs2d.parentElement.clientHeight; }
+            if(cvs2dPost) { cvs2dPost.width = cvs2dPost.parentElement.clientWidth; cvs2dPost.height = cvs2dPost.parentElement.clientHeight; }
+            
+            const upd = (id, cam, rend) => {
+                const c = document.getElementById(id);
+                if(c && cam && rend && c.clientWidth > 0) {
+                    cam.aspect = c.clientWidth/c.clientHeight; cam.updateProjectionMatrix(); rend.setSize(c.clientWidth, c.clientHeight);
+                }
+            };
+            upd('container-die', camD, rendD); upd('container-prod', camP, rendP);
+        }
+
+        window.addEventListener('resize', resizeCanvases);
+        setTimeout(resizeCanvases, 200);
+    </script>
+</body>
+</html>
